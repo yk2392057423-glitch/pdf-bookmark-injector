@@ -198,7 +198,7 @@ def _run_mineru_api(pdf_path, out_dir, emit, step_num, start_pct):
 # ══════════════════════════════════════════════════════
 
 RE_SEC_PREFIX = re.compile(r'^([1-9]\d*(?:\.\d+)*)\s*(.*)')
-_TRAIL = re.compile(r'[\u2026\u00b7\uff0e\uff0c\uff0e.\s\uff08\uff3b（【(]+$')
+_TRAIL = re.compile(r'[\u2026\u00b7\uff0e\uff0c.\s\uff08\uff3b（【(\uff1a:\u3001\uff09）】\uff3d]+$')
 
 _SPECIALS = [
     ('附：条文说明',   '条文说明'),
@@ -325,8 +325,9 @@ def _load_mineru_outputs(mineru_dir):
 # Step 3+4: 解析 MinerU 输出，注入 TOC 书签
 # ══════════════════════════════════════════════════════
 
-def step3_parse_inject(pdf_path, mineru_dir, output_pdf, toc_scan_start, emit):
-    """解析 MinerU 输出，注入 TOC 书签。返回 (offset, bookmark_count)。"""
+def step3_parse_inject(pdf_path, mineru_dir, output_pdf, toc_scan_start, emit,
+                       toc_page_indices=None):
+    """解析 MinerU 输出，注入 TOC 书签。返回 (offset, bookmark_count, clause_pdf_page)。"""
     emit('step_start', '解析目录并注入书签...', step=3, progress=45)
 
     all_lines = _load_mineru_outputs(mineru_dir)
@@ -370,13 +371,15 @@ def step3_parse_inject(pdf_path, mineru_dir, output_pdf, toc_scan_start, emit):
     offset  = None
     pat     = re.compile(r'^' + re.escape(sec_num_1) + r'\s+\S')
     sub_pat = re.compile(r'^' + re.escape(sec_num_1) + r'\.')
-    for i in range(toc_scan_start, min(toc_scan_start + 30, total)):
+    for i in range(toc_scan_start, min(toc_scan_start + 80, total)):
         lines = [l.strip() for l in quick_ocr(doc[i]).splitlines() if l.strip()]
-        for j, line in enumerate(lines[:8]):
+        for j, line in enumerate(lines[:15]):
             if not pat.match(line):
                 continue
             following = lines[j+1 : j+6]
-            if following and not any(sub_pat.match(fl) for fl in following):
+            has_subsec = any(sub_pat.match(fl) for fl in following)
+            # 页面靠前（j<5）直接接受；靠后位置需有子节确认
+            if following and not has_subsec and j >= 5:
                 continue
             offset = i - (book_page_1 - 1)
             emit('log', f"在 PDF 第{i+1}页找到 '{sec_num_1}' 章，"
@@ -386,7 +389,8 @@ def step3_parse_inject(pdf_path, mineru_dir, output_pdf, toc_scan_start, emit):
             break
 
     if offset is None:
-        offset = toc_scan_start + 4
+        # 兜底：用书页码1对应toc_scan_start估算
+        offset = toc_scan_start - (book_page_1 - 1)
         emit('log', f'未自动找到，使用估算 offset={offset}')
 
     # 构建书签
@@ -412,6 +416,13 @@ def step3_parse_inject(pdf_path, mineru_dir, output_pdf, toc_scan_start, emit):
         bookmarks.append([level, full_title, pdf_page_1idx])
 
     bookmarks = normalize_levels(bookmarks)
+
+    # 在最前面插入"目录"书签，指向用户选定的第一个目录页
+    if toc_page_indices:
+        toc_pdf_page = min(toc_page_indices) + 1   # 0-indexed → 1-indexed
+        if 1 <= toc_pdf_page <= total:
+            bookmarks = [[1, '目录', toc_pdf_page]] + bookmarks
+
     emit('log', f'注入 {len(bookmarks)} 个书签')
     for b in bookmarks:
         emit('log', f"  L{b[0]}  p{b[2]:3d}  {b[1][:60]}")
@@ -628,7 +639,8 @@ def run_pipeline(pdf_path, job_dir, emit, toc_pages, clause_event, clause_pages_
 
     # Step 3: 解析 MinerU 输出，注入主目录书签
     offset, toc_count, clause_pdf_page = step3_parse_inject(
-        pdf_path, toc_mineru, toc_bm_pdf, toc_scan_start, emit)
+        pdf_path, toc_mineru, toc_bm_pdf, toc_scan_start, emit,
+        toc_page_indices=toc_pages)
 
     # Step 4: 询问用户是否添加条文说明子目录
     if clause_pdf_page is not None:
