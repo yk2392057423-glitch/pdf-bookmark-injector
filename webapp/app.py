@@ -1,5 +1,6 @@
 """
 Flask 后端：PDF 书签注入工具网页版
+v1.0 - 2026-02-28
 路由:
   GET  /                          → index.html
   POST /upload                    → {job_id, total_pages}
