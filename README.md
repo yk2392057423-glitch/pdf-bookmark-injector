@@ -18,22 +18,18 @@ pip install -r requirements.txt
 ```
 
 > **Tesseract OCR** 需单独安装：https://github.com/UB-Mannheim/tesseract/wiki
-
-## 环境变量配置
-
-复制 `.env.example` 为 `.env`，填写以下变量：
-
-| 变量 | 说明 |
-|------|------|
-| `MINERU_API_TOKEN` | MinerU Cloud API Token，从 https://mineru.net/apiManage/token 获取 |
-| `TESSERACT_CMD` | tesseract.exe 完整路径 |
-| `TESSDATA_PREFIX` | tessdata 目录路径（含 chi_sim.traineddata） |
+>
+> 安装后若路径不是默认的 `C:\Program Files\Tesseract-OCR\`，
+> 可通过环境变量覆盖：
+>
+> ```bash
+> set TESSERACT_CMD=D:\your\path\tesseract.exe
+> set TESSDATA_PREFIX=D:\your\path\tessdata
+> ```
 
 ## 启动
 
 ```bash
-# 设置环境变量后启动
-set MINERU_API_TOKEN=your_token_here
 python webapp/app.py
 ```
 
