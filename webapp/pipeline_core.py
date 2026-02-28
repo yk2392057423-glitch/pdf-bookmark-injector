@@ -380,35 +380,51 @@ def step3_parse_inject(pdf_path, mineru_dir, output_pdf, toc_scan_start, emit,
     emit('log', f'目录显示：{sec_num_1} 章 → 书页码 {book_page_1}')
 
     def quick_ocr(page):
+        """优先用内嵌文本（born-digital PDF），扫描版才走 Tesseract。"""
+        text = page.get_text()
+        if len(text.strip()) > 50:
+            return text
         mat = fitz.Matrix(1.5, 1.5)
         pix = page.get_pixmap(matrix=mat, colorspace=fitz.csGRAY)
         img = Image.open(io.BytesIO(pix.tobytes("png")))
         return pytesseract.image_to_string(img, lang="chi_sim+eng", config="--psm 3")
 
-    offset  = None
-    pat     = re.compile(r'^' + re.escape(sec_num_1) + r'\s+\S')
-    sub_pat = re.compile(r'^' + re.escape(sec_num_1) + r'\.')
+    # 预扫描页面文本（每页只扫一次）
+    emit('log', f'扫描正文页定位章节起始（PDF第{toc_scan_start+1}页起）...')
+    page_texts = {}
     for i in range(toc_scan_start, min(toc_scan_start + 80, total)):
-        lines = [l.strip() for l in quick_ocr(doc[i]).splitlines() if l.strip()]
-        for j, line in enumerate(lines[:15]):
-            if not pat.match(line):
-                continue
-            following = lines[j+1 : j+6]
-            has_subsec = any(sub_pat.match(fl) for fl in following)
-            # 页面靠前（j<5）直接接受；靠后位置需有子节确认
-            if following and not has_subsec and j >= 5:
-                continue
-            offset = i - (book_page_1 - 1)
-            emit('log', f"在 PDF 第{i+1}页找到 '{sec_num_1}' 章，"
-                        f"书页码={book_page_1}，offset={offset}")
-            break
-        if offset is not None:
-            break
+        page_texts[i] = quick_ocr(doc[i])
 
-    if offset is None:
-        # 兜底：用书页码1对应toc_scan_start估算
+    # 多章节交叉投票确定 offset
+    # 取前5个1级章节作为参考（数字编号）
+    ref_entries = [e for e in raw_entries if e[0] == 1 and re.match(r'^\d+$', e[1])][:5]
+    if not ref_entries:
+        ref_entries = raw_entries[:3]
+
+    offset_votes: dict = {}
+    for ref_lvl, ref_sec, ref_title, ref_book_page in ref_entries:
+        ref_pat = re.compile(r'^' + re.escape(ref_sec) + r'\s+\S')
+        ref_sub = re.compile(r'^' + re.escape(ref_sec) + r'\.')
+        for i, text in page_texts.items():
+            lines = [l.strip() for l in text.splitlines() if l.strip()]
+            for j, line in enumerate(lines[:15]):
+                if not ref_pat.match(line):
+                    continue
+                following = lines[j+1 : j+6]
+                has_subsec = any(ref_sub.match(fl) for fl in following)
+                if following and not has_subsec and j >= 5:
+                    continue
+                cand = i - (ref_book_page - 1)
+                offset_votes[cand] = offset_votes.get(cand, 0) + 1
+                emit('log', f"  '{ref_sec}' 章在PDF第{i+1}页，书页码={ref_book_page}，候选offset={cand}")
+                break
+
+    if offset_votes:
+        offset = max(offset_votes, key=offset_votes.get)
+        emit('log', f'投票结果: {dict(sorted(offset_votes.items()))} → offset={offset}')
+    else:
         offset = toc_scan_start - (book_page_1 - 1)
-        emit('log', f'未自动找到，使用估算 offset={offset}')
+        emit('log', f'未找到章节起始页，估算 offset={offset}')
 
     # 构建书签
     def normalize_levels(toc):
@@ -486,6 +502,10 @@ def step_clause_a(bm_pdf, orig_pdf, output_pdf, emit):
     total = len(doc)
 
     def ocr_page(page):
+        """优先用内嵌文本，扫描版才走 Tesseract。"""
+        text = page.get_text()
+        if len(text.strip()) > 50:
+            return text
         mat = fitz.Matrix(1.5, 1.5)
         pix = page.get_pixmap(matrix=mat, colorspace=fitz.csGRAY)
         img = Image.open(io.BytesIO(pix.tobytes("png")))
