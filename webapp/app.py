@@ -191,6 +191,8 @@ def start(job_id):
     if not toc_pages or not isinstance(toc_pages, list) or len(toc_pages) == 0:
         return jsonify({'error': '请至少选择一个目录页'}), 400
 
+    api_token = body.get('api_token', '').strip()
+
     job['status'] = 'running'
     job_dir  = os.path.join(UPLOAD_DIR, job_id)
     pdf_path = os.path.join(job_dir, 'input.pdf')
@@ -212,7 +214,8 @@ def start(job_id):
         try:
             pipeline_core.run_pipeline(
                 pdf_path, job_dir, _emit, toc_pages,
-                clause_event, clause_pages_holder)
+                clause_event, clause_pages_holder,
+                api_token=api_token)
             job['status'] = 'done'
         except Exception as exc:
             _emit('error', f'处理失败: {exc}')

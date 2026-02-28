@@ -100,6 +100,17 @@
       <div id="fname" class="fname" hidden></div>
     </div>
     <input type="file" id="file-input" accept=".pdf" hidden>
+
+    <div class="mt-3">
+      <label for="token-input" class="form-label small text-muted mb-1">
+        MinerU API Token
+        <a href="https://mineru.net/apiManage/token" target="_blank"
+           class="ms-1 text-muted" style="font-size:.8em;">（获取 Token）</a>
+      </label>
+      <input type="password" id="token-input" class="form-control form-control-sm"
+             placeholder="eyJ..." autocomplete="off">
+    </div>
+
     <button id="btn-upload" class="btn btn-primary mt-3 w-100" disabled>
       上传并选择目录页
     </button>
@@ -391,11 +402,12 @@ $('btn-confirm').addEventListener('click', async () => {
 
   showProgress();
 
-  const toc_pages = Array.from(selPages).sort((a, b) => a - b);
+  const toc_pages  = Array.from(selPages).sort((a, b) => a - b);
+  const api_token  = $('token-input').value.trim();
   await fetch(`/start/${jobId}`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ toc_pages }),
+    body:    JSON.stringify({ toc_pages, api_token }),
   });
 
   listenProgress(jobId);

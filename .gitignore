@@ -12,6 +12,7 @@ tessdata/
 
 # ── 日志 / 调试输出 ──────────────────────────────────────
 *.txt
+!requirements.txt
 *.log
 *.ps1
 
@@ -24,6 +25,25 @@ venv/
 
 # ── Tesseract 模型（体积大，用户自行安装） ───────────────
 *.traineddata
+
+# ── 环境变量（含 API Token，勿提交） ─────────────────────
+.env
+
+# ── 根目录开发/实验脚本（已整合进 webapp/pipeline_core.py） ──
+add_bookmarks*.py
+step1_extract_toc.py
+step3_parse_inject.py
+step_clause_a.py
+step_clause_c.py
+check_lang.py
+dl_models.py
+download_models.py
+inspect2.py
+inspect3.py
+inspect_ocr.py
+inspect_pdf.py
+peek_pages.py
+test_ocr.py
 
 # ── Claude Code 本地配置 ─────────────────────────────────
 .claude/
