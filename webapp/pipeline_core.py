@@ -6,14 +6,20 @@ PDF 书签注入流水线核心逻辑
 """
 import os, re, io, json, glob, shutil, requests, zipfile, time
 
-os.environ["TESSDATA_PREFIX"] = os.environ.get(
-    "TESSDATA_PREFIX", r"D:\claudecode_test\01pdf\tessdata")
 import fitz
 import pytesseract
 from PIL import Image
 
-pytesseract.pytesseract.tesseract_cmd = os.environ.get(
+# Tesseract 路径：优先读环境变量，否则用默认安装路径
+_tesseract_cmd = os.environ.get(
     "TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe")
+pytesseract.pytesseract.tesseract_cmd = _tesseract_cmd
+
+# TESSDATA_PREFIX：优先读环境变量，否则从 tesseract.exe 所在目录推导
+if not os.environ.get("TESSDATA_PREFIX"):
+    _derived = os.path.join(os.path.dirname(_tesseract_cmd), "tessdata")
+    if os.path.isdir(_derived):
+        os.environ["TESSDATA_PREFIX"] = _derived
 
 MINERU_API_TOKEN = os.environ.get(
     'MINERU_API_TOKEN',

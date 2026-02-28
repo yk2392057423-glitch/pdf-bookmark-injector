@@ -26,10 +26,15 @@ if defined TESSERACT_CMD (
     "%TESSERACT_CMD%" --version >nul 2>&1
     if errorlevel 1 goto tesseract_missing
     echo [OK] Tesseract found (from TESSERACT_CMD)
+    if not defined TESSDATA_PREFIX (
+        set TESSDATA_PREFIX=%TESSERACT_CMD%\..\tessdata
+    )
     goto tesseract_ok
 )
 "C:\Program Files\Tesseract-OCR\tesseract.exe" --version >nul 2>&1
 if errorlevel 1 goto tesseract_missing
+set TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
+set TESSDATA_PREFIX=C:\Program Files\Tesseract-OCR\tessdata
 echo [OK] Tesseract OCR found
 goto tesseract_ok
 
