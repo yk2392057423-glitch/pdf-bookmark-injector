@@ -15,7 +15,10 @@ from PIL import Image
 pytesseract.pytesseract.tesseract_cmd = os.environ.get(
     "TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe")
 
-MINERU_API_TOKEN = os.environ.get('MINERU_API_TOKEN', '')
+MINERU_API_TOKEN = os.environ.get(
+    'MINERU_API_TOKEN',
+    'eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiI5ODQwMDMzMCIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc3MjI3NDk2OSwiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiIiwib3BlbklkIjpudWxsLCJ1dWlkIjoiODVkZjY3OTktNTY5Yy00MDFhLWJjYjUtMDQ5MmU3NzZhZDRmIiwiZW1haWwiOiIiLCJleHAiOjE3ODAwNTA5Njl9.Xx8oSfOLaIOn_pexGhX-1E32lV1IU_1oh1Aj6j4C8ma3JBvYCKi9MTGcZ94TB3GdnaqkrCgOJtTjRidw8I4Hfw',
+)
 MINERU_API_BASE  = 'https://mineru.net/api/v4'
 
 
@@ -119,15 +122,15 @@ def extract_toc_pages(pdf_path, selected_pages, toc_out, emit):
 # Step 2 / Step 5: MinerU Cloud API
 # ══════════════════════════════════════════════════════
 
-def _run_mineru_api(pdf_path, out_dir, emit, step_num, start_pct, api_token=''):
+def _run_mineru_api(pdf_path, out_dir, emit, step_num, start_pct):
     """调用 MinerU Cloud API 解析 PDF，替代本地 magic-pdf。"""
-    token = api_token or MINERU_API_TOKEN
+    token = MINERU_API_TOKEN
     if not token:
-        raise RuntimeError('请在页面上填写 MinerU API Token（或设置 MINERU_API_TOKEN 环境变量）')
+        raise RuntimeError('未设置 MINERU_API_TOKEN')
 
     emit('step_start', 'MinerU Cloud API 处理中...', step=step_num, progress=start_pct)
     headers = {
-        'Authorization': f'Bearer {token}',
+        'Authorization': f'Bearer {MINERU_API_TOKEN}',
         'Content-Type': 'application/json',
     }
 
@@ -155,7 +158,7 @@ def _run_mineru_api(pdf_path, out_dir, emit, step_num, start_pct, api_token=''):
     emit('log', '上传完成，等待云端解析...')
 
     # 3. 轮询结果（最多等 10 分钟）
-    auth_headers = {'Authorization': f'Bearer {token}'}
+    auth_headers = {'Authorization': f'Bearer {MINERU_API_TOKEN}'}
     for attempt in range(120):
         time.sleep(5)
         r = requests.get(
@@ -602,15 +605,13 @@ def _save_pages_as_pdf(src_pdf, page_indices, out_pdf):
     doc.close()
 
 
-def run_pipeline(pdf_path, job_dir, emit, toc_pages, clause_event, clause_pages_holder,
-                 api_token=''):
+def run_pipeline(pdf_path, job_dir, emit, toc_pages, clause_event, clause_pages_holder):
     """
     6 步完整流水线。
     toc_pages:            用户选定的主目录页列表（0-indexed）。
     clause_event:         threading.Event，step3 完成后等待用户确认条文说明。
     clause_pages_holder:  长度为 1 的列表，用于接收用户选定的条文说明目录页；
                           None 表示跳过。
-    api_token:            MinerU API Token（优先级高于环境变量）。
     """
     toc_pdf       = os.path.join(job_dir, 'toc_only.pdf')
     toc_mineru    = os.path.join(job_dir, 'toc_mineru_out')
@@ -623,7 +624,7 @@ def run_pipeline(pdf_path, job_dir, emit, toc_pages, clause_event, clause_pages_
     toc_scan_start = extract_toc_pages(pdf_path, toc_pages, toc_pdf, emit)
 
     # Step 2: MinerU Cloud API OCR 目录页
-    _run_mineru_api(toc_pdf, toc_mineru, emit, step_num=2, start_pct=15, api_token=api_token)
+    _run_mineru_api(toc_pdf, toc_mineru, emit, step_num=2, start_pct=15)
 
     # Step 3: 解析 MinerU 输出，注入主目录书签
     offset, toc_count, clause_pdf_page = step3_parse_inject(
@@ -648,7 +649,7 @@ def run_pipeline(pdf_path, job_dir, emit, toc_pages, clause_event, clause_pages_
         # Step 5: MinerU OCR 条文说明目录
         emit('log', f'条文说明目录页（0-indexed）: {clause_pages}')
         _save_pages_as_pdf(pdf_path, clause_pages, clause_toc)
-        _run_mineru_api(clause_toc, clause_mineru, emit, step_num=5, start_pct=65, api_token=api_token)
+        _run_mineru_api(clause_toc, clause_mineru, emit, step_num=5, start_pct=65)
 
         # Step 6: 注入条文说明子书签
         try:
