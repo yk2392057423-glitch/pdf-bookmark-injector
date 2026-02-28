@@ -11,25 +11,28 @@
 - 支持条文说明子目录书签（二次 OCR + 注入）
 - 实时进度日志（SSE 流式推送）
 
-## 依赖安装
+## 快速开始（Windows）
+
+**第一步：安装前置软件（一次性）**
+
+| 软件 | 下载地址 | 备注 |
+|------|----------|------|
+| Python 3.10+ | https://www.python.org/downloads/ | 安装时勾选 "Add Python to PATH" |
+| Tesseract OCR | https://github.com/UB-Mannheim/tesseract/wiki | 安装时勾选 chi_sim 中文语言包 |
+
+**第二步：双击 `启动.bat`**
+
+脚本会自动安装 Python 依赖并打开浏览器，无需其他操作。
+
+> 如果 Tesseract 安装在非默认路径，启动前设置环境变量：
+> ```
+> set TESSERACT_CMD=D:\your\path\tesseract.exe
+> ```
+
+## 手动启动
 
 ```bash
 pip install -r requirements.txt
-```
-
-> **Tesseract OCR** 需单独安装：https://github.com/UB-Mannheim/tesseract/wiki
->
-> 安装后若路径不是默认的 `C:\Program Files\Tesseract-OCR\`，
-> 可通过环境变量覆盖：
->
-> ```bash
-> set TESSERACT_CMD=D:\your\path\tesseract.exe
-> set TESSDATA_PREFIX=D:\your\path\tessdata
-> ```
-
-## 启动
-
-```bash
 python webapp/app.py
 ```
 
