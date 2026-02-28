@@ -10,16 +10,27 @@ import fitz
 import pytesseract
 from PIL import Image
 
-# Tesseract 路径：优先读环境变量，否则用默认安装路径
-_tesseract_cmd = os.environ.get(
-    "TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe")
-pytesseract.pytesseract.tesseract_cmd = _tesseract_cmd
 
-# TESSDATA_PREFIX：优先读环境变量，否则从 tesseract.exe 所在目录推导
-if not os.environ.get("TESSDATA_PREFIX"):
-    _derived = os.path.join(os.path.dirname(_tesseract_cmd), "tessdata")
-    if os.path.isdir(_derived):
-        os.environ["TESSDATA_PREFIX"] = _derived
+def _setup_tesseract():
+    """自动定位 tesseract 和包含 chi_sim.traineddata 的 tessdata 目录。"""
+    cmd = os.environ.get("TESSERACT_CMD",
+                         r"C:\Program Files\Tesseract-OCR\tesseract.exe")
+    pytesseract.pytesseract.tesseract_cmd = cmd
+
+    # 候选 tessdata 目录（按优先级）
+    candidates = [
+        os.environ.get("TESSDATA_PREFIX", ""),                        # 环境变量
+        os.path.join(os.path.dirname(os.path.abspath(cmd)), "tessdata"),  # exe 同级
+        r"C:\Program Files\Tesseract-OCR\tessdata",                   # 默认安装路径
+        r"C:\Program Files (x86)\Tesseract-OCR\tessdata",
+    ]
+    for p in candidates:
+        if p and os.path.isfile(os.path.join(p, "chi_sim.traineddata")):
+            os.environ["TESSDATA_PREFIX"] = p
+            return
+
+
+_setup_tesseract()
 
 MINERU_API_TOKEN = os.environ.get(
     'MINERU_API_TOKEN',

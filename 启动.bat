@@ -22,21 +22,20 @@ for /f "tokens=*" %%i in ('python --version 2^>^&1') do set PYVER=%%i
 echo [OK] %PYVER%
 
 :: Check Tesseract
+if not defined TESSERACT_CMD (
+    if exist "C:\Program Files\Tesseract-OCR\tesseract.exe" (
+        set "TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe"
+    )
+)
+
 if defined TESSERACT_CMD (
     "%TESSERACT_CMD%" --version >nul 2>&1
     if errorlevel 1 goto tesseract_missing
-    echo [OK] Tesseract found (from TESSERACT_CMD)
-    if not defined TESSDATA_PREFIX (
-        set TESSDATA_PREFIX=%TESSERACT_CMD%\..\tessdata
-    )
+    echo [OK] Tesseract found
+    :: Derive tessdata dir from the exe directory (%%~dpT = drive+path with trailing backslash)
+    for %%T in ("%TESSERACT_CMD%") do set "TESSDATA_PREFIX=%%~dpTtessdata"
     goto tesseract_ok
 )
-"C:\Program Files\Tesseract-OCR\tesseract.exe" --version >nul 2>&1
-if errorlevel 1 goto tesseract_missing
-set TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
-set TESSDATA_PREFIX=C:\Program Files\Tesseract-OCR\tessdata
-echo [OK] Tesseract OCR found
-goto tesseract_ok
 
 :tesseract_missing
 echo.
