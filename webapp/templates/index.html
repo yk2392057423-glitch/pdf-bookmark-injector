@@ -131,6 +131,13 @@
       </button>
     </div>
 
+    <div class="form-check mt-1 mb-2">
+      <input class="form-check-input" type="checkbox" id="chk-ai">
+      <label class="form-check-label small" for="chk-ai">
+        使用 AI 智能解析（目录格式复杂或正则解析失败时推荐）
+      </label>
+    </div>
+
     <div class="d-flex align-items-center flex-wrap gap-2">
       <button id="btn-confirm" class="btn btn-primary">
         开始处理&nbsp;
@@ -393,10 +400,11 @@ $('btn-confirm').addEventListener('click', async () => {
   showProgress();
 
   const toc_pages = Array.from(selPages).sort((a, b) => a - b);
+  const use_ai = $('chk-ai').checked;
   await fetch(`/start/${jobId}`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ toc_pages }),
+    body:    JSON.stringify({ toc_pages, use_ai }),
   });
 
   listenProgress(jobId);

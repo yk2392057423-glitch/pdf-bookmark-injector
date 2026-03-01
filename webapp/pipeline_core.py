@@ -342,10 +342,78 @@ def _load_mineru_outputs(mineru_dir):
 # Step 3+4: 解析 MinerU 输出，注入 TOC 书签
 # ══════════════════════════════════════════════════════
 
+DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', '')
+
+
+def _parse_toc_with_ai(all_lines, emit):
+    """
+    用 DeepSeek API 将 MinerU 输出解析为书签条目列表。
+    返回 [(level, section, title, page), ...] 格式，与正则解析结果一致。
+    """
+    from openai import OpenAI
+
+    api_key = DEEPSEEK_API_KEY
+    if not api_key:
+        raise RuntimeError('请设置 DEEPSEEK_API_KEY 环境变量后再使用 AI 解析功能')
+
+    # 取前 300 行，避免 token 超限
+    toc_text = '\n'.join(all_lines[:300])
+    emit('log', f'发送 {len(toc_text)} 字符到 DeepSeek API...')
+
+    client = OpenAI(api_key=api_key, base_url='https://api.deepseek.com')
+    resp = client.chat.completions.create(
+        model='deepseek-chat',
+        max_tokens=4096,
+        messages=[{
+            'role': 'user',
+            'content': (
+                '以下是从中文PDF目录页OCR提取的文本，请解析为书签列表。\n\n'
+                f'OCR文本：\n{toc_text}\n\n'
+                '返回JSON数组，每项格式：\n'
+                '{"level": 层级, "section": "章节编号", "title": "标题", "page": 页码}\n\n'
+                '说明：\n'
+                '- level 1=章级（如"1"、"2"、"附录A"），level 2=节级（如"1.1"、"2.3"）\n'
+                '- section 例如 "1"、"2.3"、"附录A"、"条文说明"\n'
+                '- title 只含标题文字，不含编号和页码\n'
+                '- page 为目录中显示的书内页码（整数）\n'
+                '- 只提取有明确页码的条目\n'
+                '只返回JSON数组，不要任何其他文字或代码块标记。'
+            ),
+        }],
+    )
+    raw_json = resp.choices[0].message.content.strip()
+
+    # 兼容模型有时会用 ```json ... ``` 包裹的情况
+    if raw_json.startswith('```'):
+        raw_json = re.sub(r'^```[a-z]*\n?', '', raw_json)
+        raw_json = re.sub(r'\n?```$', '', raw_json)
+
+    emit('log', 'DeepSeek 返回响应，解析 JSON...')
+    entries = json.loads(raw_json)
+
+    raw_entries = []
+    for e in entries:
+        try:
+            level   = int(e['level'])
+            section = str(e['section'])
+            title   = str(e['title'])
+            page    = int(e['page'])
+            raw_entries.append((level, section, title, page))
+            emit('log', f"  L{level}  {section:10s}  p={page:3d}  '{title[:40]}'")
+        except (KeyError, ValueError, TypeError):
+            continue
+
+    emit('log', f'AI 共解析 {len(raw_entries)} 条目录条目')
+    return raw_entries
+
+
 def step3_parse_inject(pdf_path, mineru_dir, output_pdf, toc_scan_start, emit,
-                       toc_page_indices=None):
+                       toc_page_indices=None, use_ai=False):
     """解析 MinerU 输出，注入 TOC 书签。返回 (offset, bookmark_count, clause_pdf_page)。"""
-    emit('step_start', '解析目录并注入书签...', step=3, progress=45)
+    if use_ai:
+        emit('step_start', 'AI 智能解析目录中...', step=3, progress=45)
+    else:
+        emit('step_start', '解析目录并注入书签...', step=3, progress=45)
 
     all_lines = _load_mineru_outputs(mineru_dir)
     if not all_lines:
@@ -354,14 +422,16 @@ def step3_parse_inject(pdf_path, mineru_dir, output_pdf, toc_scan_start, emit,
     emit('log', f'加载 {len(all_lines)} 行 MinerU 输出')
     all_lines = _preprocess_lines(all_lines)
 
-    raw_entries = []
-    for line in all_lines:
-        e = _parse_toc_line(line)
-        if e:
-            raw_entries.append(e)
-            emit('log', f"  L{e[0]}  {e[1]:10s}  p={e[3]:3d}  '{e[2][:40]}'")
-
-    emit('log', f'共解析 {len(raw_entries)} 条目录条目')
+    if use_ai:
+        raw_entries = _parse_toc_with_ai(all_lines, emit)
+    else:
+        raw_entries = []
+        for line in all_lines:
+            e = _parse_toc_line(line)
+            if e:
+                raw_entries.append(e)
+                emit('log', f"  L{e[0]}  {e[1]:10s}  p={e[3]:3d}  '{e[2][:40]}'")
+        emit('log', f'共解析 {len(raw_entries)} 条目录条目')
     if not raw_entries:
         emit('log', '⚠ 无法解析任何目录条目。MinerU 原始输出（前25行）：')
         for raw_l in all_lines[:25]:
@@ -653,7 +723,7 @@ def _save_pages_as_pdf(src_pdf, page_indices, out_pdf):
     doc.close()
 
 
-def run_pipeline(pdf_path, job_dir, emit, toc_pages, clause_event, clause_pages_holder):
+def run_pipeline(pdf_path, job_dir, emit, toc_pages, clause_event, clause_pages_holder, use_ai=False):
     """
     6 步完整流水线。
     toc_pages:            用户选定的主目录页列表（0-indexed）。
@@ -677,7 +747,7 @@ def run_pipeline(pdf_path, job_dir, emit, toc_pages, clause_event, clause_pages_
     # Step 3: 解析 MinerU 输出，注入主目录书签
     offset, toc_count, clause_pdf_page = step3_parse_inject(
         pdf_path, toc_mineru, toc_bm_pdf, toc_scan_start, emit,
-        toc_page_indices=toc_pages)
+        toc_page_indices=toc_pages, use_ai=use_ai)
 
     # Step 4: 询问用户是否添加条文说明子目录
     if clause_pdf_page is not None:
