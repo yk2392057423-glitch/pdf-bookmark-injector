@@ -32,10 +32,7 @@ def _setup_tesseract():
 
 _setup_tesseract()
 
-MINERU_API_TOKEN = os.environ.get(
-    'MINERU_API_TOKEN',
-    'eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiI5ODQwMDMzMCIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc3MjI3NDk2OSwiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiIiwib3BlbklkIjpudWxsLCJ1dWlkIjoiODVkZjY3OTktNTY5Yy00MDFhLWJjYjUtMDQ5MmU3NzZhZDRmIiwiZW1haWwiOiIiLCJleHAiOjE3ODAwNTA5Njl9.Xx8oSfOLaIOn_pexGhX-1E32lV1IU_1oh1Aj6j4C8ma3JBvYCKi9MTGcZ94TB3GdnaqkrCgOJtTjRidw8I4Hfw',
-)
+MINERU_API_TOKEN = os.environ.get('MINERU_API_TOKEN', '')
 MINERU_API_BASE  = 'https://mineru.net/api/v4'
 
 

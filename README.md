@@ -22,18 +22,39 @@
 | Python 3.10+ | https://www.python.org/downloads/ | 安装时勾选 "Add Python to PATH" |
 | Tesseract OCR | https://github.com/UB-Mannheim/tesseract/wiki | 安装时勾选 chi_sim 中文语言包 |
 
-**第二步：双击 `启动.bat`**
+**第二步：配置 API Key**
 
-脚本会自动安装 Python 依赖并打开浏览器，无需其他操作。
+本工具依赖以下云端 API，需提前申请：
 
-> 如果 Tesseract 安装在非默认路径，启动前设置环境变量：
+| 服务 | 用途 | 申请地址 |
+|------|------|----------|
+| MinerU Cloud | PDF OCR 解析（必需） | https://mineru.net |
+| DeepSeek | AI 智能解析目录（可选） | https://platform.deepseek.com |
+
+复制 `.env.example` 为 `.env`，填入你的 Key：
+
+```
+cp .env.example .env
+# 用文本编辑器打开 .env，填入对应的值
+```
+
+**第三步：双击 `启动.bat`**
+
+脚本会自动读取 `.env`、安装 Python 依赖并打开浏览器。
+
+> 如果 Tesseract 安装在非默认路径，在 `.env` 中额外设置：
 > ```
-> set TESSERACT_CMD=D:\your\path\tesseract.exe
+> TESSERACT_CMD=D:\your\path\tesseract.exe
 > ```
 
 ## 手动启动
 
 ```bash
+# 加载环境变量（Windows CMD）
+set /p MINERU_API_TOKEN=<.env
+# 或直接 export（Git Bash）
+export $(cat .env | xargs)
+
 pip install -r requirements.txt
 python webapp/app.py
 ```
